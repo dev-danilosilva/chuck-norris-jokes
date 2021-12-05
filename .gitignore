@@ -4,3 +4,4 @@ elm-stuff
 .idea
 dist
 node_modules
+*.lock
