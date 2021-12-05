@@ -1,5 +1,6 @@
 module Main exposing (..)
 
+import Array exposing (Array)
 import Browser
 import Html exposing ( Html
                      , text
@@ -15,7 +16,6 @@ import Html.Attributes exposing (class
 import Html.Events exposing (onClick)
 import Http
 import Json.Decode
-import Array exposing (Array)
 
 main : Program Json.Decode.Value Model Msg
 main =
