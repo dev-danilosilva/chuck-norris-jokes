@@ -1,0 +1,16 @@
+{
+  "name": "chuck-norries",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:dev-danilosilva/chuck-norris-jokes.git",
+  "author": "<dev.danilosilva@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "gather-files": "mkdir dist && cp *.{html,css,js} dist",
+    "build-elm": "elm make src/Main.elm --output dist/app.js --optimize",
+    "build": "yarn build-elm && yarn gather-files"
+  },
+  "dependencies": {
+    "elm": "^0.19.1-5"
+  }
+}
