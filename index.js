@@ -16,7 +16,8 @@ const config = {
         gif_api : {
             base_url : "https://g.tenor.com/v1",
             api_key : "UU4YTAMREHDI"
-        }
+        },
+        gif_set_max_length : 20
     }
 }
 

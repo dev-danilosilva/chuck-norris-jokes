@@ -16,7 +16,6 @@ import Html.Events exposing (onClick)
 import Http
 import Json.Decode
 import Array exposing (Array)
-import Random
 
 main : Program Json.Decode.Value Model Msg
 main =
@@ -28,22 +27,23 @@ main =
         }
 
 type alias Model =
-    { jokeApiConfig : ApiConfig
-    , gifApiConfig  : ApiConfig
-    , gifSet       : Array String
-    , joke         : Maybe ChuckJoke
-    , randomInt    : Int
+    { jokeApiConfig    : ApiConfig
+    , joke            : Maybe ChuckJoke
+    , gifApiConfig     : ApiConfig
+    , gifSet          : Array String
+    , gifSetMaxLength : Int
+    , imageIndex      : Int
     }
 
 type Msg
     = FetchJoke
     | GotGifSet  (Result Http.Error (Array String))
     | GotJoke    (Result Http.Error ChuckJoke)
-    | GotRandomInt Int
 
 type alias Flags =
     { jokeApi : ApiConfig
     , gifApi  : ApiConfig
+    , gifSetMaxLength : Int
     }
 
 type alias ApiConfig =
@@ -64,24 +64,26 @@ init : Json.Decode.Value -> (Model, Cmd Msg)
 init flags =
     case Json.Decode.decodeValue flagsDecoder flags of
         Ok decodedFlags ->
-            ( { jokeApiConfig = decodedFlags.jokeApi
-              , gifApiConfig  = decodedFlags.gifApi
-              , gifSet       = Array.empty
-              , joke         = Nothing
-              , randomInt    = 0
-              }
+            ( { jokeApiConfig    = decodedFlags.jokeApi
+                , joke            = Nothing
+                , gifApiConfig     = decodedFlags.gifApi
+                , gifSet          = Array.empty
+                , gifSetMaxLength = decodedFlags.gifSetMaxLength
+                , imageIndex      = 0
+                }
             , Cmd.batch
                 [ fetchRandomJoke decodedFlags.jokeApi
-                , fetchGifSet decodedFlags.gifApi
+                , fetchGifSet decodedFlags.gifSetMaxLength decodedFlags.gifApi
                 ]
             )
         Err _ ->
-            ({ jokeApiConfig = ApiConfig "" ""
-             , gifApiConfig  = ApiConfig "" ""
-             , gifSet       = Array.empty
-             , joke         = Nothing
-             , randomInt    = 0
-             }
+            ({ jokeApiConfig   = ApiConfig "" ""
+            , joke            = Nothing
+            , gifApiConfig     = ApiConfig "" ""
+            , gifSet          = Array.empty
+            , gifSetMaxLength = 10
+            , imageIndex      = 0
+            }
             ,Cmd.none
             )
 
@@ -92,17 +94,14 @@ update msg model =
             ( model
             , fetchRandomJoke model.jokeApiConfig
             )
-        GotRandomInt number ->
-            ( {model | randomInt = number}
-            , Cmd.none)
         GotJoke result ->
             case result of
                 Ok joke ->
-                    ({model | joke = Just joke}
-                    , Random.generate GotRandomInt <| Random.int 0 <| (Array.length model.gifSet) - 1)
+                    ({model | joke = Just joke, imageIndex = modBy model.gifSetMaxLength (model.imageIndex + 1)}
+                    , Cmd.none)
                 Err _ ->
                     ({ model | joke = Nothing}
-                     , Random.generate GotRandomInt <| Random.int 0 <| (Array.length model.gifSet) - 1
+                     , Cmd.none
                     )
         GotGifSet result ->
             case result of
@@ -115,7 +114,7 @@ view : Model -> Html Msg
 view model =
     div [class "container"]
         [ img [class "joke_img"
-              , src <| Maybe.withDefault "" <| Array.get model.randomInt model.gifSet
+              , src <| Maybe.withDefault "" <| Array.get model.imageIndex model.gifSet
               ]
               []
         , div [class "chuck_joke"]
@@ -131,11 +130,13 @@ view model =
                  [text "Random Joke"]
         ]
 
+-- Http
+
 randomJokeEndpoint : ApiConfig -> String
 randomJokeEndpoint apiConfig = apiConfig.baseUrl ++ "/jokes/random"
 
-gifSetEndpoint : ApiConfig -> String
-gifSetEndpoint apiConfig = apiConfig.baseUrl ++ "/search?q=chuck%20norris&key=" ++ apiConfig.apiKey  ++ "&limit=20"
+gifSetEndpoint : Int -> ApiConfig -> String
+gifSetEndpoint limit apiConfig = apiConfig.baseUrl ++ "/search?q=chuck%20norris&key=" ++ apiConfig.apiKey  ++ "&limit=" ++ String.fromInt limit
 
 fetchRandomJoke : ApiConfig -> Cmd Msg
 fetchRandomJoke apiConfig =
@@ -144,10 +145,10 @@ fetchRandomJoke apiConfig =
         , expect = Http.expectJson GotJoke chuckJokeDecoder
         }
 
-fetchGifSet : ApiConfig -> Cmd Msg
-fetchGifSet apiConfig =
+fetchGifSet : Int -> ApiConfig -> Cmd Msg
+fetchGifSet limit apiConfig =
     Http.get
-        { url = gifSetEndpoint apiConfig
+        { url = gifSetEndpoint limit apiConfig
         , expect = Http.expectJson GotGifSet gifSetDecoder
         }
 
@@ -155,10 +156,11 @@ fetchGifSet apiConfig =
 
 flagsDecoder : Json.Decode.Decoder Flags
 flagsDecoder =
-    Json.Decode.map2
+    Json.Decode.map3
         Flags
         (Json.Decode.field "joke_api" apiConfigDecoder)
         (Json.Decode.field "gif_api" apiConfigDecoder)
+        (Json.Decode.field "gif_set_max_length" Json.Decode.int)
 
 apiConfigDecoder : Json.Decode.Decoder ApiConfig
 apiConfigDecoder =
